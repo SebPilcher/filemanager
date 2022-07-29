@@ -3,6 +3,7 @@ import os
 from send2trash import send2trash
 from pickle import TRUE
 import sys
+import shutil
 from pathlib import Path
 from PyQt5.QtWidgets import QApplication, QWidget, QTreeView, QFileSystemModel, QHBoxLayout
 from PyQt5.QtCore import QModelIndex
@@ -19,6 +20,9 @@ class FileSystemView(QWidget):
         self.setGeometry(300,300,appWidth,appHeight)
 
         path = Path(path_str)
+
+        self.wasFileCopied = False
+        self.copiedFile = ""
 
         self.model = QFileSystemModel()
         self.model.setRootPath("")
@@ -60,17 +64,47 @@ class FileSystemView(QWidget):
     def keyPressEvent(self, event):
         index = self.tree.currentIndex()
 
-
         if event == QKeySequence.StandardKey.InsertParagraphSeparator:
             if self.model.isDir(index):
                 self.tree.expand(index)
             else:
                 os.startfile(self.model.filePath(index))
+
         if event == QKeySequence.StandardKey.Delete:
             file_path = self.model.filePath(index)
             file_path = file_path.replace("/","\\")
             send2trash(file_path)
+            print("File/Folder sent to Recycle Bin")
 
+        if event == QKeySequence.StandardKey.Copy:
+            self.wasFileCopied = True
+            self.copiedFile = self.model.filePath(index)
+            print("Copied File")
+
+        if event == QKeySequence.StandardKey.Cut:
+            self.wasFileCopied = False
+            self.copiedFile = self.model.filePath(index)
+            print("Cut file")
+
+        if event == QKeySequence.StandardKey.Paste and self.model.isDir(index):
+            if self.wasFileCopied:
+                shutil.copy(self.copiedFile, self.model.filePath(index))
+                print("Pasted File. (Copied)")
+            else:
+                print(self.copiedFile)
+                shutil.copy(self.copiedFile, self.model.filePath(index))
+                os.remove(self.copiedFile)
+                print("Pasted File. (Cut)")
+
+            self.copiedFile = ""
+            self.wasFileCopied = False
+
+        if event == QKeySequence.StandardKey.New and not os.path.exists(self.model.filePath(index) + "/New Folder"):
+            os.mkdir(self.model.filePath(index) + "/New Folder")
+            print("New folder made.")
+        else:
+            print("Folder already exists here.")
+        #Try make it so that if a file is selected while 
         
 
 
