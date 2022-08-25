@@ -1,5 +1,6 @@
 from genericpath import isdir
 import os
+import imghdr
 from unicodedata import name
 from send2trash import send2trash
 from pickle import TRUE
@@ -7,9 +8,9 @@ import sys
 import shutil
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QApplication, QWidget, QTreeView, QFileSystemModel, QHBoxLayout, QVBoxLayout, QTextEdit, QLabel
-from PyQt5.QtCore import QModelIndex
-from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QApplication, QWidget, QTreeView, QFileSystemModel, QHBoxLayout, QVBoxLayout, QTextEdit, QLabel, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
+from PyQt5.QtCore import QModelIndex, Qt
+from PyQt5.QtGui import QKeySequence, QPixmap
 
 class FileSystemView(QWidget):
     def __init__(self, path_str):
@@ -36,20 +37,17 @@ class FileSystemView(QWidget):
         self.tree.expand(self.model.index(path.as_posix()))
         self.tree.expandAll()
 
-        self.tree.selectionModel().currentChanged.connect(self.currentChanged)
+        self.tree.selectionModel().currentChanged.connect(self.preview)
         self.tree.doubleClicked.connect(self.doubleClicked)
 
         self.tree.setColumnWidth(0, 300)        
 
         self.layout = QHBoxLayout()
-        self.layout.addWidget(self.tree)
+        self.layout.addWidget(self.tree, 1)
 
         self.currentPreview = None
 
         self.setLayout(self.layout)
-
-    def currentChanged(self, index):
-        self.preview(self.model.filePath(index))
             
         
 
@@ -122,20 +120,20 @@ class FileSystemView(QWidget):
         if done1:
              return name
 
-    def preview(self, path):
+    def preview(self, index):
+        path = self.model.filePath(index)
+
         if self.currentPreview != None:
             self.layout.removeWidget(self.currentPreview)
             self.currentPreview = None
 
         try:
-            with open(path, "r", encoding="utf8") as f:
+            with open(path, "rb") as f:
                 content = f.read()
+                self.currentPreview = PreviewPanel(path, content)
+                self.layout.addWidget(self.currentPreview, 1)
         except Exception as e:
             print(e)
-        else:
-            self.currentPreview = PreviewPanel(path, content)
-            self.layout.addWidget(self.currentPreview)
-
 
 
 
@@ -148,13 +146,28 @@ class PreviewPanel(QWidget):
 
         label = QLabel()
         label.setText(os.path.basename(path))
-
-        text = QTextEdit()
-        text.setReadOnly(True)
-        text.setText(content)
-
         layout.addWidget(label)
-        layout.addWidget(text)
+
+        imgtype = imghdr.what(None, h=content)
+
+        if imgtype != None:
+            view = QGraphicsView()
+            pixmap = QPixmap(path)
+
+            item = QGraphicsPixmapItem(pixmap)
+
+            scene = QGraphicsScene()
+            scene.addItem(item)
+
+            view.setScene(scene)
+            view.fitInView(item, Qt.KeepAspectRatio)
+            layout.addWidget(view)
+
+        else:
+            text = QTextEdit()
+            text.setReadOnly(True)
+            text.setText(content.decode("utf8"))
+            layout.addWidget(text)
 
         self.setLayout(layout)
 
