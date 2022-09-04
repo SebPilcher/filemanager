@@ -6,9 +6,13 @@ from send2trash import send2trash
 from pickle import TRUE
 import sys
 import shutil
+import numpy
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QWidget, QTreeView, QFileSystemModel, QHBoxLayout, QVBoxLayout, QTextEdit, QLabel, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
+from pyqtgraph.opengl import GLViewWidget, MeshData, GLMeshItem
+import stl
+import pywavefront
 from PyQt5.QtCore import QModelIndex, Qt
 from PyQt5.QtGui import QKeySequence, QPixmap
 
@@ -133,7 +137,7 @@ class FileSystemView(QWidget):
                 self.currentPreview = PreviewPanel(path, content)
                 self.layout.addWidget(self.currentPreview, 1)
         except Exception as e:
-            print(e)
+            print("Exception while trying to preview: " + str(e))
 
 
 
@@ -146,7 +150,7 @@ class PreviewPanel(QWidget):
 
         label = QLabel()
         label.setText(os.path.basename(path))
-        layout.addWidget(label)
+        layout.addWidget(label, 0)
 
         imgtype = imghdr.what(None, h=content)
 
@@ -161,15 +165,36 @@ class PreviewPanel(QWidget):
 
             view.setScene(scene)
             view.fitInView(item, Qt.KeepAspectRatio)
-            layout.addWidget(view)
+            layout.addWidget(view, 1)
+
+        elif os.path.splitext(path)[1] == '.stl':
+            stl_mesh = stl.mesh.Mesh.from_file(path)
+
+            points = stl_mesh.points.reshape(-1, 3)
+            faces = numpy.arange(points.shape[0]).reshape(-1, 3)
+
+            layout.addWidget(self.create_glview(points, faces), 1)
+        elif os.path.splitext(path)[1] == '.obj':
+            scene = pywavefront.Wavefront(path)
+
+            
+            pass
 
         else:
             text = QTextEdit()
             text.setReadOnly(True)
             text.setText(content.decode("utf8"))
-            layout.addWidget(text)
+            layout.addWidget(text, 1)
 
         self.setLayout(layout)
+    
+    @staticmethod
+    def create_glview(vertexes, faces):
+        view = GLViewWidget()
+        mesh_data = MeshData(vertexes=vertexes, faces=faces)
+        mesh = GLMeshItem(meshdata=mesh_data, smooth=True, drawFaces=True, drawEdges=True, edgeColor=(0.8, 0.8, 0.8, 1))
+        view.addItem(mesh)
+        return view
 
 
 
