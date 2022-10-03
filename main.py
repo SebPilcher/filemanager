@@ -9,7 +9,7 @@ import shutil
 import numpy
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtWidgets import QApplication, QWidget, QTreeView, QFileSystemModel, QHBoxLayout, QVBoxLayout, QTextEdit, QLabel, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
+from PyQt5.QtWidgets import QApplication, QWidget, QTreeView, QFileSystemModel, QHBoxLayout, QVBoxLayout, QTextEdit, QLabel, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QMessageBox
 from pyqtgraph.opengl import GLViewWidget, MeshData, GLMeshItem
 import stl
 import pywavefront
@@ -52,6 +52,11 @@ class FileSystemView(QWidget):
         self.currentPreview = None
 
         self.setLayout(self.layout)
+
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("File Manager Keybinds")
+        dlg.setText("Open File: Enter, Doubleclick\nDelete: Del\nCut: Ctrl+X\nCopy: Ctrl+C\nPaste: Ctrl+V\nRename: Ctrl+R\nNew Folder: Ctrl+N\nExpand/Collapse Folder: Enter, Doubleclick")
+        dlg.show()
             
         
 
@@ -63,33 +68,40 @@ class FileSystemView(QWidget):
             print("File run.")
 
     def keyPressEvent(self, event):
+
         index = self.tree.currentIndex()
 
-        if event == QKeySequence.StandardKey.InsertParagraphSeparator:
+        if event.key() == Qt.Key_Return:
             if self.model.isDir(index):
                 self.tree.expand(index)
             else:
                 os.startfile(self.model.filePath(index))
                 print("File run.")
 
-        if event == QKeySequence.StandardKey.Delete:
+        if event.key() == Qt.Key_Delete:
             file_path = self.model.filePath(index)
             file_path = file_path.replace("/","\\")
             send2trash(file_path)
 
             print("File/Folder sent to Recycle Bin")
 
-        if event == QKeySequence.StandardKey.Copy:
+
+
+
+        if not event.modifiers() & Qt.ControlModifier:
+           return
+
+        if event.key() == Qt.Key_C:
             self.wasFileCopied = True
             self.copiedFile = self.model.filePath(index)
             print("Copied File")
 
-        if event == QKeySequence.StandardKey.Cut:
+        if event.key() == Qt.Key_X:
             self.wasFileCopied = False
             self.copiedFile = self.model.filePath(index)
             print("Cut file")
 
-        if event == QKeySequence.StandardKey.Paste and self.model.isDir(index):
+        if event.key() == Qt.Key_V and self.model.isDir(index):
             if os.path.exists(self.copiedFile):
                 if self.wasFileCopied:
                     shutil.copy(self.copiedFile, self.model.filePath(index))
@@ -105,22 +117,22 @@ class FileSystemView(QWidget):
             self.copiedFile = ""
             self.wasFileCopied = False
 
-        if event == QKeySequence.StandardKey.New and not os.path.exists(self.model.filePath(index) + "/New folder"):
-            os.mkdir(self.model.filePath(index) + "/New folder")
-            print("New folder made.")
-        elif event == QKeySequence.StandardKey.New and os.path.exists(self.model.filePath(index) + "/New folder"):
-            print("Folder already exists here.")
-        #Make it so that if a file is selected while creating a new folder, it creates the folder in the directory of the file.
+        if event.key() == Qt.Key_N:
+            if not os.path.exists(self.model.filePath(index) + "/New folder"):
+                os.mkdir(self.model.filePath(index) + "/New folder")
+                print("New folder made.")
+            else:
+                print("Folder already exists here.")
         
-        if event == QKeySequence.StandardKey.Replace:
+        if event.key() == Qt.Key_R:
             name = self.rename()
             newpath = Path(self.model.filePath(index)).resolve().parent.joinpath(name).as_posix()
-            print(newpath)
+            print("File Renamed")
             os.rename(self.model.filePath(index), newpath)
             
     def rename(self):
         name, done1 = QtWidgets.QInputDialog.getText(
-             self, 'Rename', 'Enter New Name:')
+             self, 'Rename', 'Enter New Name (Remember File Suffix):')
         if done1:
              return name
 
