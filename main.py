@@ -7,6 +7,7 @@ from pickle import TRUE
 import sys
 import shutil
 import numpy
+from pathvalidate import sanitize_filename
 from pathlib import Path
 from PyQt5 import QtWidgets, QtCore, QtGui
 from PyQt5.QtWidgets import QApplication, QWidget, QTreeView, QFileSystemModel, QHBoxLayout, QVBoxLayout, QTextEdit, QLabel, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QMessageBox
@@ -87,7 +88,6 @@ class FileSystemView(QWidget):
 
 
 
-
         if not event.modifiers() & Qt.ControlModifier:
            return
 
@@ -99,7 +99,7 @@ class FileSystemView(QWidget):
         if event.key() == Qt.Key_X:
             self.wasFileCopied = False
             self.copiedFile = self.model.filePath(index)
-            print("Cut file")
+            print("Cut File")
 
         if event.key() == Qt.Key_V and self.model.isDir(index):
             if os.path.exists(self.copiedFile):
@@ -107,12 +107,11 @@ class FileSystemView(QWidget):
                     shutil.copy(self.copiedFile, self.model.filePath(index))
                     print("Pasted File. (Copied)")
                 else:
-                    print(self.copiedFile)
                     shutil.copy(self.copiedFile, self.model.filePath(index))
                     os.remove(self.copiedFile)
                     print("Pasted File. (Cut)")
             else:
-                print("Missing file.")
+                print("Missing File.")
 
             self.copiedFile = ""
             self.wasFileCopied = False
@@ -125,16 +124,25 @@ class FileSystemView(QWidget):
                 print("Folder already exists here.")
         
         if event.key() == Qt.Key_R:
-            name = self.rename()
-            newpath = Path(self.model.filePath(index)).resolve().parent.joinpath(name).as_posix()
-            print("File Renamed")
-            os.rename(self.model.filePath(index), newpath)
+            self.rename(index)
+
             
-    def rename(self):
+    def rename(self, index):
         name, done1 = QtWidgets.QInputDialog.getText(
              self, 'Rename', 'Enter New Name (Remember File Suffix):')
-        if done1:
-             return name
+
+        if not done1:
+            return
+
+        newName = sanitize_filename(name)
+
+        if newName == "":
+            print("Invalid Name")
+            return
+
+        newpath = Path(self.model.filePath(index)).resolve().parent.joinpath(name).as_posix()
+        print("File Renamed")
+        os.rename(self.model.filePath(index), newpath)
 
     def preview(self, index):
         path = self.model.filePath(index)
